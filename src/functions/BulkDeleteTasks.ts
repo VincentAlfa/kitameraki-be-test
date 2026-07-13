@@ -1,24 +1,45 @@
-import { CosmosClient } from "@azure/cosmos";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { tasksContainer } from "../cosmos";
+import { BulkDeleteResult } from "../types";
 
 export async function BulkDeleteTasks(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
-    const body = await request.json() as string[];
-    const organizationId = request.query.get('organizationId');
+    context.log(`BulkDeleteTasks: ${request.url}`);
 
-    const client = new CosmosClient("this is a connection string");
-    body.forEach(async element => {
-        await client.database("TaskApp")
-        .container("Tasks")
-        .item(element, organizationId)
-        .delete();
+    const organizationId = request.query.get('organizationId');
+    if (!organizationId) {
+        return { status: 400, jsonBody: { error: "organizationId query param is required." } };
+    }
+
+    let ids: string[];
+    try {
+        ids = await request.json() as string[];
+        if (!Array.isArray(ids) || ids.some(id => typeof id !== 'string')) {
+            return { status: 400, jsonBody: { error: "Body must be a JSON array of task id strings." } };
+        }
+    } catch {
+        return { status: 400, jsonBody: { error: "Request body must be valid JSON." } };
+    }
+
+    // Fix for audit #6: forEach(async) doesn't await — use Promise.allSettled over map.
+    const results = await Promise.allSettled(
+        ids.map(id => tasksContainer().item(id, organizationId).delete())
+    );
+
+    const result: BulkDeleteResult = { succeeded: [], failed: [] };
+    results.forEach((outcome, i) => {
+        if (outcome.status === 'fulfilled') {
+            result.succeeded.push(ids[i]);
+        } else {
+            context.log(`BulkDeleteTasks: failed to delete ${ids[i]}: ${outcome.reason}`);
+            result.failed.push(ids[i]);
+        }
     });
 
-    return { status: 200 };
-};
+    return { status: 200, jsonBody: result };
+}
 
 app.http('BulkDeleteTasks', {
     methods: ['DELETE'],
-    authLevel: 'anonymous',
+    authLevel: 'function',
     handler: BulkDeleteTasks
 });
