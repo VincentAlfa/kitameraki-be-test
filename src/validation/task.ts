@@ -26,3 +26,20 @@ export function taskErrors(data: unknown): string[] {
         return ["Unknown validation error."];
     }
 }
+
+export const taskPatchSchema = taskSchema.partial();
+
+export function taskPatchErrors(data: unknown): string[] {
+    try {
+        taskPatchSchema.parse(data);
+        return [];
+    } catch (e) {
+        if (e instanceof z.ZodError) {
+            return e.issues.map(issue => {
+                const path = issue.path.join("/");
+                return `${path ? `/${path}` : ""} ${issue.message}`;
+            });
+        }
+        return ["Unknown validation error."];
+    }
+}

@@ -1,61 +1,40 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { tasksContainer } from "../cosmos";
+import { app, HttpRequest, InvocationContext } from "@azure/functions";
+import { formSettingsService } from "../services/formSettingsService";
+import { ok, badRequest } from "../utils/responses";
+import { parseJsonBody } from "../utils/requests";
+import { handleCosmosError } from "../utils/errors";
 import { FormSettings, FormField } from "../types";
+import { formSettingsPayloadErrors } from "../validation/formSettings";
 
 const SETTINGS_ID = "formSettings";
 
-function isValidField(f: unknown): f is FormField {
-    if (typeof f !== 'object' || f === null) return false;
-    const field = f as Record<string, unknown>;
-    return (
-        typeof field.id === 'string' &&
-        typeof field.label === 'string' &&
-        ['text', 'date', 'datetime', 'email'].includes(field.type as string) &&
-        typeof field.column === 'number' &&
-        typeof field.order === 'number' &&
-        typeof field.required === 'boolean'
-    );
-}
-
-export async function UpsertFormSettings(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+export async function UpsertFormSettings(request: HttpRequest, context: InvocationContext) {
     context.log(`UpsertFormSettings: ${request.url}`);
 
     const organizationId = request.query.get('organizationId');
-    if (!organizationId) {
-        return { status: 400, jsonBody: { error: "organizationId query param is required." } };
-    }
+    if (!organizationId) return badRequest("organizationId query param is required.");
 
-    let body: unknown;
-    try {
-        body = await request.json();
-    } catch {
-        return { status: 400, jsonBody: { error: "Request body must be valid JSON." } };
-    }
+    const { data: body, errorResponse } = await parseJsonBody(request);
+    if (errorResponse) return errorResponse;
 
-    const payload = body as Record<string, unknown>;
-    if (!Array.isArray(payload.fields) || !payload.fields.every(isValidField)) {
-        return { status: 400, jsonBody: { error: "Body must have a 'fields' array of valid FormField objects." } };
-    }
+    const errors = formSettingsPayloadErrors(body);
+    if (errors.length > 0) return badRequest("Validation failed.", errors);
+    
+    const payload = body as { fields: FormField[] };
 
     const doc: FormSettings = {
         id: SETTINGS_ID,
         organizationId,
         type: "formSettings",
-        fields: payload.fields as FormField[],
+        fields: payload.fields,
     };
 
     try {
-        const { resource } = await tasksContainer().items.upsert<FormSettings>(doc);
-        return { status: 200, jsonBody: resource };
+        const resource = await formSettingsService.upsertFormSettings(doc);
+        return ok(resource);
     } catch (err: any) {
-        if (err.code === 429) return { status: 429, jsonBody: { error: "Too many requests. Please retry later." } };
-        context.log(`UpsertFormSettings error: ${err.message}`);
-        return { status: 500, jsonBody: { error: "Internal server error." } };
+        return handleCosmosError(err, context, "UpsertFormSettings", "Form Settings");
     }
 }
 
-app.http('UpsertFormSettings', {
-    methods: ['PUT'],
-    authLevel: 'function',
-    handler: UpsertFormSettings
-});
+app.http('UpsertFormSettings', { methods: ['PUT'], authLevel: 'function', handler: UpsertFormSettings });

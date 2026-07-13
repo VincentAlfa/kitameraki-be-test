@@ -1,29 +1,21 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
-import { tasksContainer } from "../cosmos";
+import { app, HttpRequest, InvocationContext } from "@azure/functions";
+import { taskService } from "../services/taskService";
+import { ok, badRequest } from "../utils/responses";
+import { handleCosmosError } from "../utils/errors";
 
-export async function DeleteTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+export async function DeleteTask(request: HttpRequest, context: InvocationContext) {
     context.log(`DeleteTask: ${request.url}`);
 
     const taskId = request.query.get('id');
     const organizationId = request.query.get('organizationId');
-
-    if (!taskId || !organizationId) {
-        return { status: 400, jsonBody: { error: "id and organizationId query params are required." } };
-    }
+    if (!taskId || !organizationId) return badRequest("id and organizationId query params are required.");
 
     try {
-        await tasksContainer().item(taskId, organizationId).delete();
-        return { status: 200 };
+        await taskService.deleteTask(taskId, organizationId);
+        return ok({ message: "Task deleted successfully" });
     } catch (err: any) {
-        if (err.code === 404) return { status: 404, jsonBody: { error: "Task not found." } };
-        if (err.code === 429) return { status: 429, jsonBody: { error: "Too many requests. Please retry later." } };
-        context.log(`DeleteTask error: ${err.message}`);
-        return { status: 500, jsonBody: { error: "Internal server error." } };
+        return handleCosmosError(err, context, "DeleteTask", "Task");
     }
 }
 
-app.http('DeleteTask', {
-    methods: ['DELETE'],
-    authLevel: 'function',
-    handler: DeleteTask
-});
+app.http('DeleteTask', { methods: ['DELETE'], authLevel: 'function', handler: DeleteTask });
