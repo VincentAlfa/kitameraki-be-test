@@ -1,19 +1,36 @@
-import { CosmosClient } from "@azure/cosmos";
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { tasksContainer } from "../cosmos";
+import { Task } from "../types";
+import { taskErrors } from "../validate";
 
 export async function InsertTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    const body = await request.json();
+    context.log(`InsertTask: ${request.url}`);
 
-    const client = new CosmosClient("this is a connection string");
-    const createdTask = await client.database("TaskApp")
-        .container("Tasks")
-        .items.create(body);
+    let body: unknown;
+    try {
+        body = await request.json();
+    } catch {
+        return { status: 400, jsonBody: { error: "Request body must be valid JSON." } };
+    }
 
-    return { jsonBody: createdTask.resource, status: 200 };
-};
+    const errors = taskErrors(body);
+    if (errors.length > 0) {
+        return { status: 400, jsonBody: { error: "Validation failed.", details: errors } };
+    }
+
+    try {
+        const { resource } = await tasksContainer().items.create<Task>(body as Task);
+        return { status: 200, jsonBody: resource };
+    } catch (err: any) {
+        if (err.code === 409) return { status: 409, jsonBody: { error: "A task with this id already exists." } };
+        if (err.code === 429) return { status: 429, jsonBody: { error: "Too many requests. Please retry later." } };
+        context.log(`InsertTask error: ${err.message}`);
+        return { status: 500, jsonBody: { error: "Internal server error." } };
+    }
+}
 
 app.http('InsertTask', {
     methods: ['POST'],
-    authLevel: 'anonymous',
+    authLevel: 'function',
     handler: InsertTask
 });
