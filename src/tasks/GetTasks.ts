@@ -19,7 +19,6 @@ export async function GetTasks(request: HttpRequest, context: InvocationContext)
     const search = request.query.get('search') ?? undefined;
     const continuationToken = request.query.get('continuationToken') ?? undefined;
 
-    // Validate enum params so bad values return a clear error rather than empty results.
     if (status && !VALID_STATUS.has(status)) {
         return { status: 400, jsonBody: { error: `Invalid status. Allowed: ${[...VALID_STATUS].join(', ')}.` } };
     }
@@ -27,13 +26,11 @@ export async function GetTasks(request: HttpRequest, context: InvocationContext)
         return { status: 400, jsonBody: { error: `Invalid priority. Allowed: ${[...VALID_PRIORITY].join(', ')}.` } };
     }
 
-    // Build parameterized query — no string interpolation of user input.
     const conditions: string[] = ["c.organizationId = @organizationId"];
     const parameters: { name: string; value: string }[] = [
         { name: "@organizationId", value: organizationId }
     ];
 
-    // Exclude formSettings docs that share the container.
     conditions.push("(NOT IS_DEFINED(c.type) OR c.type != 'formSettings')");
 
     if (status) {
@@ -45,7 +42,6 @@ export async function GetTasks(request: HttpRequest, context: InvocationContext)
         parameters.push({ name: "@priority", value: priority });
     }
     if (search) {
-        // CONTAINS is case-insensitive with the third arg = true.
         conditions.push("(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true))");
         parameters.push({ name: "@search", value: search });
     }

@@ -2,9 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { tasksContainer } from "../cosmos";
 import { FormSettings } from "../types";
 
-// ponytail: form settings are stored in the Tasks container with type="formSettings"
-// so no second Cosmos container is needed. The partition key is still organizationId.
-const SETTINGS_ID = "formSettings"; // synthetic document id — one per org
+const SETTINGS_ID = "formSettings"; 
 
 export async function GetFormSettings(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
     context.log(`GetFormSettings: ${request.url}`);
@@ -19,7 +17,6 @@ export async function GetFormSettings(request: HttpRequest, context: InvocationC
             .item(SETTINGS_ID, organizationId)
             .read<FormSettings>();
 
-        // "no settings yet" is a normal state, not an error — return empty fields array.
         if (!resource) {
             return { status: 200, jsonBody: { organizationId, fields: [] } };
         }

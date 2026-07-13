@@ -2,7 +2,6 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { tasksContainer } from "../cosmos";
 import { Task } from "../types";
 
-// Fields that must never be patched — they define the document's identity/partition.
 const IMMUTABLE_FIELDS = new Set(["id", "organizationId"]);
 
 export async function UpdateTask(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {

@@ -1,18 +1,7 @@
-// Single source of truth for domain types — mirrors task.schema.json.
-// Option A applied: customFields is a nested object, keeping additionalProperties: false
-// on the top-level schema intact for the fixed fields.
+import { z } from "zod";
+import { taskSchema } from "./validate";
 
-export interface Task {
-    id: string;
-    organizationId: string;
-    title: string;
-    description?: string;
-    dueDate?: string;
-    priority?: "low" | "medium" | "high";
-    status: "todo" | "in-progress" | "completed";
-    tags?: string[];
-    customFields?: Record<string, string>;
-}
+export type Task = z.infer<typeof taskSchema>;
 
 export interface FormField {
     id: string;
@@ -27,7 +16,6 @@ export interface FormSettings {
     id: string;
     organizationId: string;
     fields: FormField[];
-    /** Discriminator so formSettings docs can coexist in the Tasks container. */
     type: "formSettings";
 }
 

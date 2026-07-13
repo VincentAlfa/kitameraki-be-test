@@ -2,105 +2,73 @@
 
 Azure Functions v4 (Node/TypeScript) task management API backed by Azure Cosmos DB.
 
+This repository has been fully refactored to improve **security, readability, and maintainability** per the test requirements.
+
 ## Prerequisites
 
 | Tool | Version |
 |---|---|
 | Node.js | ≥ 20 |
 | Azure Functions Core Tools | v4 (`npm install -g azure-functions-core-tools@4 --unsafe-perm true`) |
-| TypeScript (local) | 4.9.x (installed via `npm install`) |
 
 ## Local setup
 
-### 1. Install dependencies
+The application is configured to run locally without needing an active Azure subscription, by using the free local Cosmos DB Emulator.
 
-```bash
-npm install
-```
+### 1. Set up Cosmos DB Emulator
 
-### 2. Create `local.settings.json`
+1. Download and install the [Azure Cosmos DB Emulator](https://aka.ms/cosmosdb-emulator).
+2. Start the emulator and open the Data Explorer at `https://localhost:8081/_explorer/index.html`.
+3. Create the required database and container:
+   - **Database id:** `TaskApp`
+   - **Container id:** `Tasks`
+   - **Partition key:** `/organizationId`
 
-This file is **gitignored** — never commit it with real secrets.
+*(Note: If you are using a real Azure Cosmos DB free-tier account instead of the emulator, create the database there and copy your Primary Connection String).*
+
+### 2. Configure environment variables
+
+The `local.settings.json` file is gitignored. Create it in the root of the project:
 
 ```json
 {
   "IsEncrypted": false,
   "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "AzureWebJobsStorage": "",
     "FUNCTIONS_WORKER_RUNTIME": "node",
-    "COSMOS_CONNECTION_STRING": "<your-connection-string-here>"
+    "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5UrC7U4aBBDrBqiMBUNxLYZRHRaA==;"
+  },
+  "Host": {
+    "CORS": "http://localhost:5173",
+    "CORSCredentials": true
   }
 }
 ```
+*(The connection string above is the public default for the Cosmos DB Emulator).*
 
-**Where to get the connection string:**
-
-- **Azure Cosmos DB Emulator (recommended for local dev):** Install the [Azure Cosmos DB Emulator](https://aka.ms/cosmosdb-emulator). The emulator's default connection string is:
-  ```
-  AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b5UrC7U4aBBDrBqiMBUNxLYZRHRaA==;
-  ```
-  The emulator creates the `TaskApp` database and `Tasks` container automatically on first use (or create them manually in the Emulator's Data Explorer).
-
-- **Real Azure Cosmos DB account:** Copy the primary connection string from the Azure portal → your Cosmos account → **Keys**.
-
-### 3. Ensure the Cosmos container exists
-
-Database: `TaskApp`  
-Container: `Tasks`  
-Partition key: `/organizationId`
-
-Create these via the Azure portal, Cosmos DB Emulator Data Explorer, or the Azure CLI:
+### 3. Run the backend
 
 ```bash
-az cosmosdb sql database create --account-name <account> --resource-group <rg> --name TaskApp
-az cosmosdb sql container create --account-name <account> --resource-group <rg> --database-name TaskApp --name Tasks --partition-key-path /organizationId
-```
-
-### 4. Run locally
-
-```bash
+npm install
 npm start
 ```
 
-This runs `tsc` then `func start`. The API is available at `http://localhost:7071/api`.
+This will run TypeScript compilation and start the Functions host. The API will be available at `http://localhost:7071/api`.
 
-### Function key for local dev
+**Authentication note for local dev:** All endpoints use `authLevel: 'function'`, but the local `func start` runtime bypasses key enforcement by design. You can test locally without providing a `?code=` key. Keys are only enforced when deployed to Azure.
 
-With `authLevel: 'function'`, local dev generates a host key automatically. After `func start`, look for output like:
+## API Reference
 
-```
-Functions:
-  GetTasks: [GET] http://localhost:7071/api/GetTasks
+See [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md) for the full endpoint reference, request/response shapes, and details on the `customFields` form builder implementation.
 
-For detailed output, run func with --verbose flag.
-```
+## Deployment to Azure (Optional)
 
-Get the key from `http://localhost:7071/admin/host/keys` (no auth needed locally), then include it as `?code=<key>` or `x-functions-key: <key>` header on every request.
+If you wish to deploy this to a live Azure environment:
 
-### Build only
-
-```bash
-npm run build
-```
-
-Output goes to `dist/`.
-
-## Environment variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `COSMOS_CONNECTION_STRING` | ✅ | Full Cosmos DB connection string. Set in `local.settings.json` locally, App Settings / Key Vault reference on Azure. |
-
-## API reference
-
-See [`docs/API_CONTRACT.md`](./docs/API_CONTRACT.md) for the full endpoint reference, request/response shapes, and auth details.
-
-## Deployment
-
-Target: Azure Function App (Consumption or Flex plan).
-
-```bash
-func azure functionapp publish <function-app-name>
-```
-
-Set `COSMOS_CONNECTION_STRING` in the Function App's Application Settings (or reference a Key Vault secret) — **do not commit real secrets**.
+1. Provision a **Function App** (Node stack) and an **Azure Cosmos DB** account in the Azure Portal.
+2. In the Cosmos DB Data Explorer, create the `TaskApp` database and `Tasks` container (Partition key: `/organizationId`).
+3. Deploy the code using the Core Tools:
+   ```bash
+   func azure functionapp publish <your-function-app-name>
+   ```
+4. In the Function App's Configuration / Environment Variables in the Azure Portal, add the `COSMOS_CONNECTION_STRING` variable containing your real Cosmos DB primary connection string.

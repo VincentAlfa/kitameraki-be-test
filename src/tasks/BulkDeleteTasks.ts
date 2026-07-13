@@ -20,7 +20,6 @@ export async function BulkDeleteTasks(request: HttpRequest, context: InvocationC
         return { status: 400, jsonBody: { error: "Request body must be valid JSON." } };
     }
 
-    // Fix for audit #6: forEach(async) doesn't await — use Promise.allSettled over map.
     const results = await Promise.allSettled(
         ids.map(id => tasksContainer().item(id, organizationId).delete())
     );
