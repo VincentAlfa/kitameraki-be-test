@@ -24,6 +24,7 @@ export interface FormField {
 }
 
 export interface FormSettings {
+    id: string;
     organizationId: string;
     fields: FormField[];
     /** Discriminator so formSettings docs can coexist in the Tasks container. */

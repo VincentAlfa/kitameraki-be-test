@@ -44,8 +44,14 @@
         "maxLength": 50
       },
       "description": "Tags associated with the task"
+    },
+    "customFields": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Custom field values keyed by field id (Option A — nested to preserve additionalProperties: false on fixed fields)"
     }
   },
   "required": ["id", "organizationId", "title", "status"],
   "additionalProperties": false
 }
+
