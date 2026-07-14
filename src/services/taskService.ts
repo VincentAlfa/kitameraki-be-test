@@ -1,6 +1,5 @@
 import { tasksContainer } from "../config/cosmos";
 import { Task, BulkDeleteResult } from "../types";
-import { PatchOperation } from "@azure/cosmos";
 
 const PAGE_SIZE = 20;
 
@@ -51,8 +50,11 @@ export const taskService = {
         return resource;
     },
 
-    async updateTask(id: string, organizationId: string, patchOps: PatchOperation[]): Promise<Task | undefined> {
-        const { resource } = await tasksContainer().item(id, organizationId).patch<Task>(patchOps);
+    async updateTask(id: string, organizationId: string, patch: Record<string, unknown>): Promise<Task | undefined> {
+        const existing = await this.getTask(id, organizationId);
+        if (!existing) return undefined;
+        const updated = { ...existing, ...patch };
+        const { resource } = await tasksContainer().item(id, organizationId).replace<Task>(updated);
         return resource;
     },
 

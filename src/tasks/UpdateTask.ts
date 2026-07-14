@@ -20,14 +20,15 @@ export async function UpdateTask(request: HttpRequest, context: InvocationContex
     const errors = taskPatchErrors(body);
     if (errors.length > 0) return badRequest("Validation failed.", errors);
 
-    const patchOps = Object.entries(body)
-        .filter(([key]) => !IMMUTABLE_FIELDS.has(key))
-        .map(([key, value]) => ({ op: "set" as const, path: `/${key}`, value }));
+    const patch = Object.fromEntries(
+        Object.entries(body).filter(([key]) => !IMMUTABLE_FIELDS.has(key))
+    );
 
-    if (patchOps.length === 0) return badRequest("No patchable fields provided.");
+    if (Object.keys(patch).length === 0) return badRequest("No patchable fields provided.");
 
     try {
-        const resource = await taskService.updateTask(taskId, organizationId, patchOps);
+        const resource = await taskService.updateTask(taskId, organizationId, patch);
+        if (!resource) return { status: 404, jsonBody: { error: "Task not found." } };
         return ok(resource);
     } catch (err: any) {
         return handleCosmosError(err, context, "UpdateTask", "Task");
