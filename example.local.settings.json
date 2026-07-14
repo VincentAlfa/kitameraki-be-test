@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "COSMOS_CONNECTION_STRING": "AccountEndpoint=https://<your-cosmos-account>.documents.azure.com:443/;AccountKey=<your-account-key>;"
+  },
+  "Host": {
+    "CORS": "http://localhost:5173",
+    "CORSCredentials": false
+  }
+}
