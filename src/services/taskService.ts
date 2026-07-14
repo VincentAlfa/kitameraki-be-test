@@ -1,15 +1,13 @@
 import { tasksContainer } from "../config/cosmos";
 import { Task, BulkDeleteResult } from "../types";
 
-const PAGE_SIZE = 20;
-
 export const taskService = {
     async getTask(id: string, organizationId: string): Promise<Task | undefined> {
         const { resource } = await tasksContainer().item(id, organizationId).read<Task>();
         return resource;
     },
 
-    async getTasks(organizationId: string, status?: string, priority?: string, search?: string, continuationToken?: string) {
+    async getTasks(organizationId: string, status?: string, priority?: string, search?: string, continuationToken?: string, limit: number = 20) {
         const conditions: string[] = ["c.organizationId = @organizationId"];
         const parameters: { name: string; value: string }[] = [{ name: "@organizationId", value: organizationId }];
 
@@ -34,7 +32,7 @@ export const taskService = {
         };
 
         const iterator = tasksContainer().items.query<Task>(querySpec, {
-            maxItemCount: PAGE_SIZE,
+            maxItemCount: limit,
             continuationToken,
         });
 

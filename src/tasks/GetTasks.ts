@@ -17,11 +17,15 @@ export async function GetTasks(request: HttpRequest, context: InvocationContext)
     const search = request.query.get('search') ?? undefined;
     const continuationToken = request.query.get('continuationToken') ?? undefined;
 
+    const limitParam = request.query.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : 20;
+
     if (status && !VALID_STATUS.has(status)) return badRequest(`Invalid status. Allowed: ${[...VALID_STATUS].join(', ')}.`);
     if (priority && !VALID_PRIORITY.has(priority)) return badRequest(`Invalid priority. Allowed: ${[...VALID_PRIORITY].join(', ')}.`);
+    if (isNaN(limit) || limit < 1 || limit > 100) return badRequest("Invalid limit. Must be between 1 and 100.");
 
     try {
-        const result = await taskService.getTasks(organizationId, status, priority, search, continuationToken);
+        const result = await taskService.getTasks(organizationId, status, priority, search, continuationToken, limit);
         return ok(result);
     } catch (err: any) {
         return handleCosmosError(err, context, "GetTasks", "Task");
