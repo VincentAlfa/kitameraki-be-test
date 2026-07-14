@@ -22,7 +22,7 @@ export async function UpdateTask(request: HttpRequest, context: InvocationContex
 
     const patchOps = Object.entries(body)
         .filter(([key]) => !IMMUTABLE_FIELDS.has(key))
-        .map(([key, value]) => ({ op: "replace" as const, path: `/${key}`, value }));
+        .map(([key, value]) => ({ op: "set" as const, path: `/${key}`, value }));
 
     if (patchOps.length === 0) return badRequest("No patchable fields provided.");
 

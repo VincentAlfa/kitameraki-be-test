@@ -6,5 +6,5 @@ export function handleCosmosError(err: any, context: InvocationContext, operatio
     if (err.code === 429) return { status: 429, jsonBody: { error: "Too many requests. Please retry later." } };
     
     context.log(`${operationName} error: ${err.message}`);
-    return { status: 500, jsonBody: { error: "Internal server error." } };
+    return { status: 500, jsonBody: { error: `Internal server error: ${err.message}` } };
 }
